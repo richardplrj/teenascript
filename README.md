@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bibliotheca — Digital E-Library
 
-## Getting Started
+A full-stack digital library application with a built-in plagiarism detection engine. Browse and read scholarly articles, submit new articles, and check any text for similarity against the library's collection — all without any external NLP libraries.
 
-First, run the development server:
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Database | SQLite (via Prisma ORM) |
+| Fonts | Playfair Display · DM Sans (Google Fonts) |
+| Plagiarism Engine | Custom TF-IDF + Cosine Similarity (no external NLP libs) |
+
+---
+
+## Running Locally
+
+### Prerequisites
+- Node.js 18+ and npm
+
+### Steps
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Set up environment variables
+cp .env.example .env
+# Edit .env — set ADMIN_PASSWORD to something secure
+
+# 3. Push the database schema
+npx prisma db push
+
+# 4. Seed the database with 6 sample articles
+npx prisma db seed
+
+# 5. Start the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Pages
 
-## Learn More
+| Route | Description |
+|---|---|
+| `/` | Browse and search the article library |
+| `/article/[id]` | Read a single article |
+| `/upload` | Submit a new article (paste or .txt upload) |
+| `/check` | Plagiarism checker with visual similarity report |
+| `/admin` | Admin login |
+| `/admin/dashboard` | Manage articles and view plagiarism check history |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## How the Plagiarism Engine Works
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The checker lives entirely in `lib/plagiarism.ts` and uses no external NLP libraries — only pure mathematics.
 
-## Deploy on Vercel
+### 1. Tokenisation
+Input text is lowercased, stripped of punctuation, split on whitespace, and filtered against a set of 80+ English stop words (*the*, *is*, *a*, etc.). The result is a clean array of meaningful tokens.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 2. TF-IDF Vectorisation
+For a set of text documents (sentences, in practice):
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **TF** *(Term Frequency)* = occurrences of word in document ÷ total words in document
+- **IDF** *(Inverse Document Frequency)* = log(total documents ÷ documents containing the word)
+- **TF-IDF** = TF × IDF — words common everywhere score low; words distinctive to a document score high.
+
+All sentences from the input text *and* all library articles are vectorised together in one corpus so IDF values are globally consistent.
+
+### 3. Cosine Similarity
+Two TF-IDF vectors are compared using cosine similarity:
+
+```
+similarity = (A · B) / (|A| × |B|)
+```
+
+The dot product of the two sparse vectors divided by the product of their magnitudes gives a value in **[0, 1]** — 0 means no shared vocabulary, 1 means identical.
+
+### 4. Sentence-Level Matching
+Both the input text and each library article are split into sentences. Every input sentence is compared against every sentence in every article. The highest sentence-pair similarity becomes the article-level score. Only matches above **20%** are reported. The overall score is the maximum across all articles.
+
+---
+
+## Screenshots
+
+> *(Add screenshots here once the application is running)*
+
+- **Library browse page** — hero search, category filter pills, article card grid
+- **Article reader** — narrow editorial layout, comfortable reading typography
+- **Plagiarism checker** — animated SVG score ring, colour-coded results, expandable matched passage pairs
+- **Admin dashboard** — stats cards, article management table, plagiarism report history
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | SQLite file path — e.g. `file:./dev.db` |
+| `ADMIN_PASSWORD` | Password for the `/admin` panel |
+
+See `.env.example` for a template.
